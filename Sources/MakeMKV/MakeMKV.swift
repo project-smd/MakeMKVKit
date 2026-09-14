@@ -80,10 +80,16 @@ public actor MakeMKV {
     ///
     /// `title` must be one of `scan.titles`, compared whole rather than by index, so a title carried
     /// over from a different scan is refused before anything spins.
+    ///
+    /// `profile` says which tracks the file keeps. Without one MakeMKV uses the selection rule saved
+    /// in this machine's preferences, which is whatever the GUI last had, so a rip meant to be the
+    /// same everywhere passes one. The profile is written to a temporary file for the run and
+    /// removed afterwards.
     public func rip(
         _ title: Title,
         from scan: Scan,
         to destination: URL,
+        profile: ConversionProfile? = nil,
         onLine: (@Sendable (RobotLine) -> Void)? = nil,
         progress: (@Sendable (RipProgress) -> Void)? = nil
     ) async throws -> RipResult {
@@ -95,6 +101,19 @@ public actor MakeMKV {
         }
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
+        var settings = scan.settings
+        var profileURL: URL?
+        if let profile {
+            let url = try profile.writeToTemporaryFile()
+            profileURL = url
+            settings.additionalArguments.append("--profile=\(url.path)")
+        }
+        defer {
+            if let profileURL {
+                try? FileManager.default.removeItem(at: profileURL)
+            }
+        }
+
         let tracker = ProgressTracker(report: progress)
         var observe: (@Sendable (RobotLine) -> Void)?
         if progress != nil || onLine != nil {
@@ -104,7 +123,7 @@ public actor MakeMKV {
             }
         }
         let lines = try await run(
-            settings: scan.settings,
+            settings: settings,
             command: ["mkv", scan.source.argument, String(title.index), destination.path],
             onLine: observe
         )

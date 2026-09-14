@@ -22,10 +22,10 @@ What a wrapper adds is a place to hold the two facts that make direct use of `ma
   number, not a playlist name, and that number shifts with `--minlength` and with MakeMKV's own
   skipping of duplicate playlists. So `rip` takes a `Scan` and a `Title` from it, reuses the scan's
   source and settings, and refuses a title the scan did not list.
-- **Track selection is a preference, not a given.** MakeMKV's default selection rule drops lossy
-  cores when a lossless variant exists and filters by preferred language, so the stream layout of a
-  rip depends on the installed settings. `ScanSettings.profile` passes a conversion profile per
-  run, which is the route to a deterministic layout.
+- **Track selection is a preference, not a given.** Without a profile, `makemkvcon` keeps whatever
+  tracks the selection rule saved in this machine's MakeMKV preferences says, which is whatever the
+  GUI last had. `rip` takes a `ConversionProfile` built from a `SelectionRule`, written in MakeMKV's
+  own rule language, so the same call keeps the same tracks on any machine.
 
 ## Use
 
@@ -43,11 +43,25 @@ for title in scan.titles {
 }
 
 let feature = scan.titles.max { ($0.durationSeconds ?? 0) < ($1.durationSeconds ?? 0) }!
-let result = try await makeMKV.rip(feature, from: scan, to: URL(fileURLWithPath: "/Volumes/Rips")) { progress in
+
+// Every track except the lossy cores MakeMKV would otherwise add beside each lossless track.
+let profile = ConversionProfile(selection: SelectionRule([
+    .select(.attribute(.all)),
+    .deselect(.attribute(.core)),
+]))
+let result = try await makeMKV.rip(feature, from: scan, to: URL(fileURLWithPath: "/Volumes/Rips"), profile: profile) { progress in
     print(progress.current?.name ?? "", progress.value.currentFraction ?? 0)
 }
 print(result.outputURL)
 ```
+
+`SelectionRule` is MakeMKV's selection language with its own keywords — `all`, `audio`, `favlang`,
+`core`, `havecore`, `forced` and the rest, each carrying MakeMKV's definition as its doc comment —
+and `SelectionRule.makeMKVDefault` reproduces the rule in MakeMKV's shipped `default.mmcp.xml`
+character for character. `ConversionProfile` mirrors that file rule for rule, with the selection
+written in as a literal rather than as a reference to the installed preference, and is handed to
+`makemkvcon` as a temporary `--profile` file for the run. The profile does not change which title
+an index names; that was checked against a disc rather than assumed.
 
 Parsing a saved log needs only the format library:
 
@@ -88,6 +102,13 @@ the parser is checked against every one of them in `CorpusTests`.
   are the `AP_DriveState*` and `AP_DskFsFlag*` constants from the same header.
 - Switch names were checked against the `makemkvcon` binary: `messages`, `progress`, `cache`,
   `minlength`, `noscan`, `directio`, `decrypt`, `debug`, `profile`.
+- The selection rule language is documented by MakeMKV on its forum (topic 4386), and the profile
+  format by the `default.mmcp.xml` in the application's own data archive. A rule is a list of
+  actions applied in order, later ones overriding earlier; `-sel:all` really does deselect
+  everything, leaving a video-only file, so a rule that wants tracks starts with `+sel:all`.
+  Measured on one title with a DTS-HD MA track and its core: `-sel:core` drops the core and keeps
+  the lossless track, `-sel:havecore` does the opposite, and `-sel:subtitle` drops subtitles. A
+  forced-only subtitle stream that turns out empty is dropped by MakeMKV whatever the rule says.
 
 Anything the parser cannot read is kept verbatim as `.unrecognised` rather than dropped. TheDiscDb
 appends `HSH:` lines of its own to the logs it keeps; those are the one expected occupant. A line
