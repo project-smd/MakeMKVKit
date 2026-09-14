@@ -71,6 +71,10 @@ public struct DiscScan: Hashable, Sendable {
 }
 
 /// Shared by the disc, a title and a stream: a bag of attributes with typed reads over it.
+///
+/// The bags are `Codable`, so a title can be kept after the scan it came from is gone — a tool
+/// that queues ripped files for later work needs the title as it was, tracks and all, and a title
+/// index alone means nothing without its scan. Keys encode as their raw ids.
 public protocol AttributeBearing {
     var attributes: [AttributeID: Attribute] { get }
 }
@@ -85,7 +89,7 @@ extension AttributeBearing {
     }
 }
 
-public struct DiscInfo: AttributeBearing, Hashable, Sendable {
+public struct DiscInfo: AttributeBearing, Hashable, Sendable, Codable {
     /// From `TCOUNT`, which MakeMKV prints before the titles; falls back to the titles seen.
     public var titleCount: Int
     public var attributes: [AttributeID: Attribute]
@@ -117,13 +121,13 @@ public struct DiscInfo: AttributeBearing, Hashable, Sendable {
 }
 
 /// What kind of disc MakeMKV opened. UHD discs report the same code as Blu-ray.
-public enum MediaType: Hashable, Sendable {
+public enum MediaType: Hashable, Sendable, Codable {
     case dvd
     case bluray
     case other(code: Int)
 }
 
-public struct Title: AttributeBearing, Hashable, Sendable {
+public struct Title: AttributeBearing, Hashable, Sendable, Codable {
     /// MakeMKV's title index — the number `mkv` takes. It is positional and depends on the scan
     /// settings, so it means something only against the scan that produced it.
     public var index: Int
@@ -191,7 +195,7 @@ public struct Title: AttributeBearing, Hashable, Sendable {
 
 /// One stream of a title — an `SINFO` row. Named as the GUI names them, "track", partly because
 /// that is the word on its info panel and partly because Foundation already owns `Stream`.
-public struct Track: AttributeBearing, Hashable, Sendable {
+public struct Track: AttributeBearing, Hashable, Sendable, Codable {
     /// MakeMKV's stream index within the title, as the disc has it. A ripped file renumbers.
     public var index: Int
     public var attributes: [AttributeID: Attribute]

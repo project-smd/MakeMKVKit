@@ -7,7 +7,7 @@
 /// prefix dropped and nothing else renamed, so any field here can be grepped against upstream. A
 /// struct rather than an enum so that an id this version has never heard of survives parsing and
 /// round-trips; `name` is `nil` for those.
-public struct AttributeID: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
+public struct AttributeID: RawRepresentable, Hashable, Sendable, Codable, CustomStringConvertible {
     public let rawValue: Int
 
     public init(rawValue: Int) {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the MakeMKVKit project authors
 
+import Foundation
 import MakeMKVRobot
 import Testing
 
@@ -110,6 +111,16 @@ struct FixtureTests {
         let disc = try #require(scan.disc)
         #expect(disc.mediaType == .bluray, "UHD discs carry the Blu-ray type code; the format is not distinguishable here")
         #expect(disc.titleCount == 4)
+    }
+
+    @Test func discInfoRoundTripsThroughJSON() throws {
+        let scan = DiscScan(parsing: try Fixture.text("daleks-in-colour-disc01-bluray.txt"))
+        let disc = try #require(scan.disc)
+        let data = try JSONEncoder().encode(disc)
+        let decoded = try JSONDecoder().decode(DiscInfo.self, from: data)
+        #expect(decoded == disc)
+        #expect(decoded.title(index: 0)?.tracks.count == disc.title(index: 0)?.tracks.count)
+        #expect(decoded.title(index: 0)?.audioTracks.first?.codecShort == "DTS-HD MA")
     }
 
     @Test func emptyRunHasNoDisc() {
