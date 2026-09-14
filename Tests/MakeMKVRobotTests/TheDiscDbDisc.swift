@@ -3,7 +3,7 @@
 
 import Foundation
 import MakeMKVRobot
-import XCTest
+import Testing
 
 /// The parts of a TheDiscDb `discNN.json` that restate facts from the MakeMKV log beside it.
 ///
@@ -79,7 +79,7 @@ func disagreements(between scan: DiscScan, and record: TheDiscDbDisc) -> [String
 
 enum Fixture {
     static func url(_ name: String) throws -> URL {
-        try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures"), "fixture \(name)")
+        try #require(Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures"), "fixture \(name)")
     }
 
     static func text(_ name: String) throws -> String {

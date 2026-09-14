@@ -1,20 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the MakeMKVKit project authors
 
+import Foundation
 import MakeMKVRobot
-import XCTest
+import Testing
 
 /// Runs the parser over every log in a clone of github.com/TheDiscDb/data and compares each against
-/// the JSON TheDiscDb derived from it. Skipped unless `MAKEMKVKIT_THEDISCDB_DATA` names the clone.
+/// the JSON TheDiscDb derived from it. Disabled unless `MAKEMKVKIT_THEDISCDB_DATA` names the clone.
 ///
-///     MAKEMKVKIT_THEDISCDB_DATA=~/src/thediscdb-data swift test --filter CorpusTests
-final class CorpusTests: XCTestCase {
-    func testEveryLogAgreesWithItsRecord() throws {
-        guard let root = ProcessInfo.processInfo.environment["MAKEMKVKIT_THEDISCDB_DATA"] else {
-            throw XCTSkip("set MAKEMKVKIT_THEDISCDB_DATA to a clone of TheDiscDb/data")
-        }
+///     MAKEMKVKIT_THEDISCDB_DATA=~/src/thediscdb-data swift test -c release --filter CorpusTests
+struct CorpusTests {
+    static var dataRoot: String? { ProcessInfo.processInfo.environment["MAKEMKVKIT_THEDISCDB_DATA"] }
+
+    /// Logs that are broken in the repository rather than in this parser. Each still has to parse
+    /// well enough for its titles to agree with TheDiscDb's record; only its unreadable lines are
+    /// excused.
+    ///
+    /// - Miami Vice disc 9 is truncated at the top and opens part-way through a multi-line message.
+    private static let damagedUpstream: Set<String> = [
+        "series/Miami Vice (1984)/2016-complete-series-blu-ray/disc09.txt",
+    ]
+
+    @Test(.enabled(if: dataRoot != nil, "set MAKEMKVKIT_THEDISCDB_DATA to a clone of TheDiscDb/data"))
+    func everyLogAgreesWithItsRecord() throws {
+        let root = try #require(Self.dataRoot)
         let dataURL = URL(fileURLWithPath: (root as NSString).expandingTildeInPath).appendingPathComponent("data")
-        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: dataURL, includingPropertiesForKeys: nil))
+        let enumerator = try #require(FileManager.default.enumerator(at: dataURL, includingPropertiesForKeys: nil))
 
         var logs = 0
         var unreadable: [String] = []
@@ -40,20 +51,11 @@ final class CorpusTests: XCTestCase {
             }
         }
 
-        XCTAssertGreaterThan(logs, 1000, "expected the whole corpus, found \(logs) logs under \(dataURL.path)")
-        XCTAssertEqual(unreadable.count, 0, "lines not parsed, by file:\n" + histogram(unreadable) + "\nfirst few:\n" + unreadable.prefix(8).joined(separator: "\n"))
-        XCTAssertEqual(problems.count, 0, "disagreements, by file:\n" + histogram(problems) + "\nfirst few:\n" + problems.prefix(8).joined(separator: "\n"))
+        #expect(logs > 1000, "expected the whole corpus, found \(logs) logs under \(dataURL.path)")
+        #expect(unreadable.count == 0, "lines not parsed, by file:\n\(histogram(unreadable))\nfirst few:\n\(unreadable.prefix(8).joined(separator: "\n"))")
+        #expect(problems.count == 0, "disagreements, by file:\n\(histogram(problems))\nfirst few:\n\(problems.prefix(8).joined(separator: "\n"))")
         print("corpus: \(logs) logs, \(unreadable.count) unreadable lines, \(problems.count) disagreements")
     }
-
-    /// Logs that are broken in the repository rather than in this parser. Each still has to parse
-    /// well enough for its titles to agree with TheDiscDb's record; only its unreadable lines are
-    /// excused.
-    ///
-    /// - Miami Vice disc 9 is truncated at the top and opens part-way through a multi-line message.
-    private static let damagedUpstream: Set<String> = [
-        "series/Miami Vice (1984)/2016-complete-series-blu-ray/disc09.txt",
-    ]
 
     /// MakeMKV writes UTF-8, but a few logs in the corpus were saved through something that
     /// re-encoded them as UTF-16 with a byte-order mark. Honour the mark; otherwise read as UTF-8,
