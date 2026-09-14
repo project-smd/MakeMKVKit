@@ -147,7 +147,7 @@ public struct MediaFlags: OptionSet, Hashable, Sendable {
 /// `messageCode` is non-zero when the value is a localised string with a stable numeric identity —
 /// a stream's type is `6201`, `6202` or `6203` whether the text says "Audio" or something else —
 /// and zero when the value is free text. Match on the code, not the text, wherever one exists.
-public struct Attribute: Hashable, Sendable {
+public struct Attribute: Hashable, Sendable, Codable {
     public var id: AttributeID
     public var messageCode: Int
     public var value: String
