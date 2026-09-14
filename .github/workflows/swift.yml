@@ -1,0 +1,29 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  LicenceHeaders:
+    name: Licence headers
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      # Pure git and shell, so this gate needs no Swift toolchain and answers in seconds. A missing
+      # header is not a build error and nothing else in the toolchain looks, so without this the
+      # omission is silent.
+      - name: Check SPDX headers
+        run: ./Scripts/check-license-headers.sh
+
+  Tests:
+    name: Tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      # The fixture tests are the whole point of the parser target, and they need no MakeMKV, no
+      # drive and no network — the corpus test skips itself unless pointed at a TheDiscDb clone.
+      - name: swift test
+        run: swift test
