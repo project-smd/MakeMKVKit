@@ -22,11 +22,40 @@ struct MakeMKVTests {
             minimumTitleLength: 0,
             cacheMegabytes: 1024,
             directIO: true,
-            profile: URL(fileURLWithPath: "/tmp/p.mmcp.xml"),
             noScan: true,
             additionalArguments: ["--debug"]
         )
-        #expect(settings.arguments == ["--minlength=0", "--cache=1024", "--directio=true", "--profile=/tmp/p.mmcp.xml", "--noscan", "--debug"])
+        #expect(settings.arguments == ["--minlength=0", "--cache=1024", "--directio=true", "--noscan", "--debug"])
+    }
+
+    @Test func selectionRuleReproducesMakeMKVsDefault() {
+        // The string in MakeMKV's own default.mmcp.xml, character for character.
+        #expect(SelectionRule.makeMKVDefault.description == "-sel:all,+sel:(favlang|nolang|single),-sel:(havemulti|havecore),-sel:mvcvideo,=100:all,-10:favlang")
+        #expect(SelectionRule.everything.description == "+sel:all")
+        let rule = SelectionRule([
+            .select(.attribute(.all)),
+            .deselect(.attribute(.core)),
+            .deselect(.and(.attribute(.subtitle), .attribute(.forced))),
+            .deselect(.not(.language("eng"))),
+            .addWeight(5, .nth(2)),
+        ])
+        #expect(rule.description == "+sel:all,-sel:core,-sel:(subtitle*forced),-sel:!eng,+5:2")
+    }
+
+    @Test func conversionProfileInlinesTheRuleAndWrites() throws {
+        let profile = ConversionProfile(name: "Test & <check>", selection: SelectionRule([.select(.attribute(.all)), .deselect(.attribute(.core))]))
+        let xml = profile.xml
+        #expect(xml.contains(#"defaultSelection="+sel:all,-sel:core""#))
+        #expect(xml.components(separatedBy: "defaultSelection=").count == 4, "one per trackSettings rule, as in the shipped default")
+        #expect(xml.contains("<name lang=\"eng\">Test &amp; &lt;check></name>"))
+        #expect(!xml.contains("$app_DefaultSelectionString"))
+
+        let url = try profile.writeToTemporaryFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+        #expect(url.pathExtension == "xml")
+        #expect(try String(contentsOf: url, encoding: .utf8) == xml)
+        // It is well-formed XML.
+        _ = try XMLDocument(contentsOf: url)
     }
 
     @Test func locateReportsWhereItLooked() throws {
