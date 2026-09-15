@@ -28,6 +28,37 @@ struct MakeMKVTests {
         #expect(settings.arguments == ["--minlength=0", "--cache=1024", "--directio=true", "--noscan", "--debug"])
     }
 
+    @Test func engineMadeScanExposesItsTitles() {
+        // A scan built from an engine-supplied disc must expose its titles and disc, not read
+        // through the empty robot log it carries.
+        let disc = DiscInfo(titleCount: 2, attributes: [.name: Attribute(id: .name, messageCode: 0, value: "Disc")], titles: [
+            Title(index: 0, attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00001.mpls")], tracks: []),
+            Title(index: 1, attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00002.mpls")], tracks: []),
+        ])
+        let scan = Scan(source: .disc(0), settings: ScanSettings(), disc: disc)
+        #expect(scan.disc?.name == "Disc")
+        #expect(scan.titles.map(\.index) == [0, 1])
+        #expect(scan.title(index: 1)?.sourceIdentifier == "00002.mpls")
+    }
+
+    @Test func engineFramesEncodeAsTheEngineExpects() {
+        // A call with no arguments and no data is one byte, 0xf0 | command.
+        #expect(EngineProtocol.Frame(.callOnIdle).encoded == Data([0xf4]))
+        #expect(EngineProtocol.Frame(.clientDone).encoded == Data([0xf2]))
+        // Otherwise a little-endian header (command, argument count, data size), the arguments,
+        // then the string buffer. Two arguments and no data, for opening drive 1.
+        let open = EngineProtocol.Frame(.callOpenCdDisk, args: [1, 0])
+        #expect(open.encoded == Data([0x00, 0x00, 0x02, 0x13, 1, 0, 0, 0, 0, 0, 0, 0]))
+        // A string travels NUL-terminated, counted in the size field.
+        let folder = EngineProtocol.Frame(.callSetOutputFolder, string: "/tmp")
+        #expect(folder.encoded == Data([0x05, 0x00, 0x00, 0x10]) + Data("/tmp".utf8) + [0])
+        // Packed strings and handles read back.
+        let drive = EngineProtocol.Frame(.backUpdateDrive, args: [0, 7, 2, 12, 0], data: Data("BD-RE\u{0}DOCTOR_WHO\u{0}/dev/rdisk5\u{0}".utf8))
+        #expect(drive.strings.prefix(3) == ["BD-RE", "DOCTOR_WHO", "/dev/rdisk5"])
+        let title = EngineProtocol.Frame(.backSetTitleInfo, args: [3, 0x89abcdef, 0x01234567, 5, 12, 0, 0])
+        #expect(title.handle(at: 1) == 0x01234567_89abcdef)
+    }
+
     @Test func selectionRuleReproducesMakeMKVsDefault() {
         // The string in MakeMKV's own default.mmcp.xml, character for character.
         #expect(SelectionRule.makeMKVDefault.description == "-sel:all,+sel:(favlang|nolang|single),-sel:(havemulti|havecore),-sel:mvcvideo,=100:all,-10:favlang")
