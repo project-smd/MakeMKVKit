@@ -11,20 +11,31 @@ import MakeMKVRobot
 public struct Scan: Hashable, Sendable {
     public let source: Source
     public let settings: ScanSettings
+    /// The robot-mode run this came from, empty for a scan made through an `EngineSession`.
     public let result: DiscScan
+    private let engineDisc: DiscInfo?
 
     public init(source: Source, settings: ScanSettings, result: DiscScan) {
         self.source = source
         self.settings = settings
         self.result = result
+        self.engineDisc = nil
     }
 
-    public var disc: DiscInfo? { result.disc }
-    public var titles: [Title] { result.disc?.titles ?? [] }
+    /// A scan made through an `EngineSession`, which hands back the disc directly.
+    public init(source: Source, settings: ScanSettings, disc: DiscInfo) {
+        self.source = source
+        self.settings = settings
+        self.result = DiscScan(lines: [])
+        self.engineDisc = disc
+    }
+
+    public var disc: DiscInfo? { engineDisc ?? result.disc }
+    public var titles: [Title] { disc?.titles ?? [] }
 
     /// The title with this index, if the scan listed it.
     public func title(index: Int) -> Title? {
-        result.disc?.title(index: index)
+        disc?.title(index: index)
     }
 }
 

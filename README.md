@@ -55,6 +55,38 @@ let result = try await makeMKV.rip(feature, from: scan, to: URL(fileURLWithPath:
 print(result.outputURL)
 ```
 
+### Keeping the engine open
+
+Every `makemkvcon` process re-reads the disc before it can do anything, so ripping several titles
+through `mkv` costs a scan per title. `EngineSession` avoids that the way MakeMKV's own GUI does:
+it spawns `makemkvcon guiserver` and speaks the GUI's protocol to it over stdin and stdout, keeps
+one disc open, ticks titles and tracks individually, and writes the ticked titles in one job.
+
+```swift
+let session = EngineSession(executable: try MakeMKV.locate())
+try await session.start()
+let drives = try await session.drives()
+let disc = try await session.open(.disc(0), minimumTitleLength: 120)   // the same DiscInfo a scan gives
+for title in disc.titles {
+    try await session.setSelected(title.index == 13, title: title.index)
+}
+try await session.saveSelectedTitles(to: URL(fileURLWithPath: "/Volumes/Rips"))
+try await session.close()
+await session.quit()
+```
+
+The protocol is not documented by MakeMKV. It is read from the open-source half of MakeMKV
+1.18.4 — the command enum and ABI tag in `aproxy.h`, which its authors placed in the public
+domain, the framing in `clt_pipe.cpp`, the callback handling in `client.cpp` — and it is gated
+by an ABI tag the engine checks exactly, so a MakeMKV that bumps it will refuse this client
+rather than misbehave. Measured on a Collection disc: the title tree the engine hands back matched
+a robot-mode scan attribute for attribute across all 32 titles, a rip of one title took 18 seconds
+where robot mode took 72, and the user's settings file was untouched. The engine lists a disc's
+cover art as an item beside the tracks and ticks it; robot mode never does, so the session keeps
+it out of `Title.tracks` and unticks it, and the two paths write the same file. One thing the
+engine will do that robot mode cannot is ask a question; the session answers "no answer", which
+makes the engine take its default, and reports what was asked as a message.
+
 `SelectionRule` is MakeMKV's selection language with its own keywords — `all`, `audio`, `favlang`,
 `core`, `havecore`, `forced` and the rest, each carrying MakeMKV's definition as its doc comment —
 and `SelectionRule.makeMKVDefault` reproduces the rule in MakeMKV's shipped `default.mmcp.xml`
