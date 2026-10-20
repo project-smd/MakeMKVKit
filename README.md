@@ -1,3 +1,21 @@
+<p align="center">
+  <a href="https://github.com/project-smd/MakeMKVKit/actions/workflows/swift.yml">
+    <img src="https://github.com/project-smd/MakeMKVKit/actions/workflows/swift.yml/badge.svg" alt="Build">
+  </a>
+  <a href="https://swiftpackageindex.com/project-smd/MakeMKVKit">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fproject-smd%2FMakeMKVKit%2Fbadge%3Ftype%3Dswift-versions" alt="Swift versions">
+  </a>
+  <a href="https://codecov.io/gh/project-smd/MakeMKVKit">
+    <img src="https://codecov.io/gh/project-smd/MakeMKVKit/graph/badge.svg" alt="Code coverage">
+  </a>
+  <a href="https://swiftpackageindex.com/project-smd/MakeMKVKit">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fproject-smd%2FMakeMKVKit%2Fbadge%3Ftype%3Dplatforms" alt="Platforms">
+  </a>
+  <a href="https://www.apache.org/licenses/LICENSE-2.0">
+    <img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0">
+  </a>
+</p>
+
 # MakeMKVKit
 
 A small Swift wrapper around `makemkvcon`, MakeMKV's command-line front end, covering what a ripping
