@@ -21,7 +21,7 @@ public actor MakeMKV {
     }
 
     public static let defaultLocations = [
-        URL(fileURLWithPath: "/Applications/MakeMKV.app/Contents/MacOS/makemkvcon"),
+        URL(fileURLWithPath: "/Applications/MakeMKV.app/Contents/MacOS/makemkvcon")
     ]
 
     public static func locate(
@@ -69,8 +69,9 @@ public actor MakeMKV {
         let lines = try await run(settings: settings, command: ["info", source.argument], onLine: onLine)
         let result = DiscScan(lines: lines)
         guard result.disc != nil,
-              result.message(code: MessageCode.noUsableDrives) == nil,
-              result.message(code: MessageCode.failedToOpenDisc) == nil else {
+            result.message(code: MessageCode.noUsableDrives) == nil,
+            result.message(code: MessageCode.failedToOpenDisc) == nil
+        else {
             throw MakeMKVError.discUnavailable(messages: result.messages)
         }
         return Scan(source: source, settings: settings, result: result)
@@ -130,7 +131,7 @@ public actor MakeMKV {
 
         let outputURL = destination.appendingPathComponent(outputFileName)
         guard FileManager.default.fileExists(atPath: outputURL.path) else {
-            let messages = lines.compactMap { if case .message(let m) = $0 { m } else { nil } }
+            let messages = lines.compactMap { if case .message(let message) = $0 { message } else { nil } }
             throw MakeMKVError.outputMissing(outputURL, messages: messages)
         }
         return RipResult(outputURL: outputURL, log: lines)
@@ -171,7 +172,7 @@ public actor MakeMKV {
 
         let status = await exit.value()
         guard status == 0 || tolerateFailure else {
-            let messages = lines.compactMap { if case .message(let m) = $0 { m } else { nil } }
+            let messages = lines.compactMap { if case .message(let message) = $0 { message } else { nil } }
             throw MakeMKVError.processFailed(status: status, messages: messages)
         }
         return lines

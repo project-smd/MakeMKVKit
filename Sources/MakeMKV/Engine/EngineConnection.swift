@@ -121,8 +121,10 @@ final class EngineConnection: @unchecked Sendable {
         let rest = try read(count: argCount * 4 + dataSize)
         var args: [UInt32] = []
         args.reserveCapacity(argCount)
-        for i in 0..<argCount {
-            args.append(rest.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: i * 4, as: UInt32.self) }.littleEndian)
+        for argIndex in 0..<argCount {
+            args.append(
+                rest.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: argIndex * 4, as: UInt32.self) }.littleEndian
+            )
         }
         return EngineProtocol.Frame(command, args: args, data: rest.suffix(dataSize))
     }
@@ -139,9 +141,11 @@ final class EngineConnection: @unchecked Sendable {
             let ready = poll(&pfd, 1, Int32(readTimeout * 1000))
             if ready == 0 { throw Failure.readTimedOut }
             if ready < 0 { throw Failure.connectionLost }
-            let n = buffer.withUnsafeMutableBytes { Darwin.read(readFD, $0.baseAddress, min(count - out.count, $0.count)) }
-            if n <= 0 { throw Failure.connectionLost }
-            out.append(contentsOf: buffer[0..<n])
+            let bytesRead = buffer.withUnsafeMutableBytes {
+                Darwin.read(readFD, $0.baseAddress, min(count - out.count, $0.count))
+            }
+            if bytesRead <= 0 { throw Failure.connectionLost }
+            out.append(contentsOf: buffer[0..<bytesRead])
         }
         return out
     }
@@ -149,9 +153,11 @@ final class EngineConnection: @unchecked Sendable {
     private func write(_ data: Data) throws {
         var offset = 0
         while offset < data.count {
-            let n = data.withUnsafeBytes { Darwin.write(writeFD, $0.baseAddress! + offset, data.count - offset) }
-            if n <= 0 { throw Failure.connectionLost }
-            offset += n
+            let bytesWritten = data.withUnsafeBytes {
+                Darwin.write(writeFD, $0.baseAddress! + offset, data.count - offset)
+            }
+            if bytesWritten <= 0 { throw Failure.connectionLost }
+            offset += bytesWritten
         }
     }
 }

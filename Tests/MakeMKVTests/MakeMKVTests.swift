@@ -31,10 +31,22 @@ struct MakeMKVTests {
     @Test func engineMadeScanExposesItsTitles() {
         // A scan built from an engine-supplied disc must expose its titles and disc, not read
         // through the empty robot log it carries.
-        let disc = DiscInfo(titleCount: 2, attributes: [.name: Attribute(id: .name, messageCode: 0, value: "Disc")], titles: [
-            Title(index: 0, attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00001.mpls")], tracks: []),
-            Title(index: 1, attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00002.mpls")], tracks: []),
-        ])
+        let disc = DiscInfo(
+            titleCount: 2,
+            attributes: [.name: Attribute(id: .name, messageCode: 0, value: "Disc")],
+            titles: [
+                Title(
+                    index: 0,
+                    attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00001.mpls")],
+                    tracks: []
+                ),
+                Title(
+                    index: 1,
+                    attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00002.mpls")],
+                    tracks: []
+                ),
+            ]
+        )
         let scan = Scan(source: .disc(0), settings: ScanSettings(), disc: disc)
         #expect(scan.disc?.name == "Disc")
         #expect(scan.titles.map(\.index) == [0, 1])
@@ -53,15 +65,22 @@ struct MakeMKVTests {
         let folder = EngineProtocol.Frame(.callSetOutputFolder, string: "/tmp")
         #expect(folder.encoded == Data([0x05, 0x00, 0x00, 0x10]) + Data("/tmp".utf8) + [0])
         // Packed strings and handles read back.
-        let drive = EngineProtocol.Frame(.backUpdateDrive, args: [0, 7, 2, 12, 0], data: Data("BD-RE\u{0}DOCTOR_WHO\u{0}/dev/rdisk5\u{0}".utf8))
+        let drive = EngineProtocol.Frame(
+            .backUpdateDrive,
+            args: [0, 7, 2, 12, 0],
+            data: Data("BD-RE\u{0}DOCTOR_WHO\u{0}/dev/rdisk5\u{0}".utf8)
+        )
         #expect(drive.strings.prefix(3) == ["BD-RE", "DOCTOR_WHO", "/dev/rdisk5"])
-        let title = EngineProtocol.Frame(.backSetTitleInfo, args: [3, 0x89abcdef, 0x01234567, 5, 12, 0, 0])
+        let title = EngineProtocol.Frame(.backSetTitleInfo, args: [3, 0x89ab_cdef, 0x0123_4567, 5, 12, 0, 0])
         #expect(title.handle(at: 1) == 0x01234567_89abcdef)
     }
 
     @Test func selectionRuleReproducesMakeMKVsDefault() {
         // The string in MakeMKV's own default.mmcp.xml, character for character.
-        #expect(SelectionRule.makeMKVDefault.description == "-sel:all,+sel:(favlang|nolang|single),-sel:(havemulti|havecore),-sel:mvcvideo,=100:all,-10:favlang")
+        #expect(
+            SelectionRule.makeMKVDefault.description
+                == "-sel:all,+sel:(favlang|nolang|single),-sel:(havemulti|havecore),-sel:mvcvideo,=100:all,-10:favlang"
+        )
         #expect(SelectionRule.everything.description == "+sel:all")
         let rule = SelectionRule([
             .select(.attribute(.all)),
@@ -74,10 +93,16 @@ struct MakeMKVTests {
     }
 
     @Test func conversionProfileInlinesTheRuleAndWrites() throws {
-        let profile = ConversionProfile(name: "Test & <check>", selection: SelectionRule([.select(.attribute(.all)), .deselect(.attribute(.core))]))
+        let profile = ConversionProfile(
+            name: "Test & <check>",
+            selection: SelectionRule([.select(.attribute(.all)), .deselect(.attribute(.core))])
+        )
         let xml = profile.xml
         #expect(xml.contains(#"defaultSelection="+sel:all,-sel:core""#))
-        #expect(xml.components(separatedBy: "defaultSelection=").count == 4, "one per trackSettings rule, as in the shipped default")
+        #expect(
+            xml.components(separatedBy: "defaultSelection=").count == 4,
+            "one per trackSettings rule, as in the shipped default"
+        )
         #expect(xml.contains("<name lang=\"eng\">Test &amp; &lt;check></name>"))
         #expect(!xml.contains("$app_DefaultSelectionString"))
 
@@ -91,7 +116,10 @@ struct MakeMKVTests {
 
     @Test func locateReportsWhereItLooked() throws {
         let error = try #require(throws: MakeMKVError.self) {
-            try MakeMKV.locate(defaultLocations: [URL(fileURLWithPath: "/nonexistent/makemkvcon")], environment: ["PATH": "/nonexistent/bin"])
+            try MakeMKV.locate(
+                defaultLocations: [URL(fileURLWithPath: "/nonexistent/makemkvcon")],
+                environment: ["PATH": "/nonexistent/bin"]
+            )
         }
         guard case .executableNotFound(let searched) = error else {
             Issue.record("unexpected \(error)")
@@ -106,7 +134,11 @@ struct MakeMKVTests {
             settings: ScanSettings(),
             result: DiscScan(parsing: "TCOUNT:1\nTINFO:0,16,0,\"00001.mpls\"\nTINFO:0,27,0,\"a_t00.mkv\"")
         )
-        let foreign = Title(index: 0, attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00002.mpls")], tracks: [])
+        let foreign = Title(
+            index: 0,
+            attributes: [.sourceFileName: Attribute(id: .sourceFileName, messageCode: 0, value: "00002.mpls")],
+            tracks: []
+        )
         let makeMKV = MakeMKV(executable: URL(fileURLWithPath: "/nonexistent/makemkvcon"))
         let error = try await #require(throws: MakeMKVError.self) {
             try await makeMKV.rip(foreign, from: scan, to: FileManager.default.temporaryDirectory)
@@ -119,7 +151,11 @@ struct MakeMKVTests {
     }
 
     @Test func ripRefusesATitleWithNoOutputName() async throws {
-        let scan = Scan(source: .disc(0), settings: ScanSettings(), result: DiscScan(parsing: "TCOUNT:1\nTINFO:0,16,0,\"00001.mpls\""))
+        let scan = Scan(
+            source: .disc(0),
+            settings: ScanSettings(),
+            result: DiscScan(parsing: "TCOUNT:1\nTINFO:0,16,0,\"00001.mpls\"")
+        )
         let makeMKV = MakeMKV(executable: URL(fileURLWithPath: "/nonexistent/makemkvcon"))
         let error = try await #require(throws: MakeMKVError.self) {
             try await makeMKV.rip(scan.titles[0], from: scan, to: FileManager.default.temporaryDirectory)

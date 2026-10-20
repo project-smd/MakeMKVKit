@@ -134,14 +134,19 @@ public actor EngineSession {
     /// engine, so the result carries the same codes robot mode prints.
     public func open(_ source: Source, minimumTitleLength: Int? = nil) async throws -> DiscInfo {
         if let minimumTitleLength {
-            _ = try await call(.callSetSettingInt, args: [EngineProtocol.Setting.dvdMinimumTitleLength.rawValue, UInt32(minimumTitleLength)])
+            _ = try await call(
+                .callSetSettingInt,
+                args: [EngineProtocol.Setting.dvdMinimumTitleLength.rawValue, UInt32(minimumTitleLength)]
+            )
         }
         let opened: EngineProtocol.Frame
         switch source {
         case .disc(let index):
             opened = try await runJob { try await self.call(.callOpenCdDisk, args: [UInt32(index), 0]) }
         case .device(let path):
-            opened = try await runJob { try await self.call(.callOpenTitleCollection, args: [0], string: "dev:" + path) }
+            opened = try await runJob {
+                try await self.call(.callOpenTitleCollection, args: [0], string: "dev:" + path)
+            }
         case .iso(let url), .folder(let url):
             opened = try await runJob { try await self.call(.callOpenFile, args: [0], string: url.path) }
         }
@@ -176,13 +181,16 @@ public actor EngineSession {
         return DiscInfo(titleCount: expectedTitles, attributes: discAttributes, titles: titles)
     }
 
-
     /// The selection rule the engine applies when it opens a disc: MakeMKV's own
     /// `app_DefaultSelectionString`, set in the engine's memory for this session only. Set it
     /// before `open`, since the engine ticks tracks as it builds the tree. `saveSettings` is never
     /// called, so the user's own preference on disk is left alone.
     public func setSelectionRule(_ rule: SelectionRule) async throws {
-        _ = try await call(.callSetSettingString, args: [EngineProtocol.Setting.appDefaultSelectionString.rawValue, 1], string: rule.description)
+        _ = try await call(
+            .callSetSettingString,
+            args: [EngineProtocol.Setting.appDefaultSelectionString.rawValue, 1],
+            string: rule.description
+        )
     }
 
     /// Whether the engine has a title ticked for saving.
@@ -225,7 +233,10 @@ public actor EngineSession {
     }
 
     private func state(of handle: UInt64) async throws -> UInt32 {
-        let reply = try await call(.callGetUiItemState, args: [UInt32(truncatingIfNeeded: handle), UInt32(truncatingIfNeeded: handle >> 32)])
+        let reply = try await call(
+            .callGetUiItemState,
+            args: [UInt32(truncatingIfNeeded: handle), UInt32(truncatingIfNeeded: handle >> 32)]
+        )
         return reply.args.first ?? 0
     }
 
@@ -233,7 +244,10 @@ public actor EngineSession {
         let current = try await state(of: handle)
         let wanted = enabledBit ? current | EngineProtocol.itemEnabledBit : current & ~EngineProtocol.itemEnabledBit
         guard wanted != current else { return }
-        _ = try await call(.callSetUiItemState, args: [UInt32(truncatingIfNeeded: handle), UInt32(truncatingIfNeeded: handle >> 32), wanted])
+        _ = try await call(
+            .callSetUiItemState,
+            args: [UInt32(truncatingIfNeeded: handle), UInt32(truncatingIfNeeded: handle >> 32), wanted]
+        )
     }
 
     /// Close the open disc, ejecting nothing.
@@ -248,7 +262,10 @@ public actor EngineSession {
     private func attributes(of handle: UInt64) async throws -> [AttributeID: Attribute] {
         var result: [AttributeID: Attribute] = [:]
         for raw in 1...50 {
-            let reply = try await call(.callGetUiItemInfo, args: [UInt32(truncatingIfNeeded: handle), UInt32(truncatingIfNeeded: handle >> 32), UInt32(raw)])
+            let reply = try await call(
+                .callGetUiItemInfo,
+                args: [UInt32(truncatingIfNeeded: handle), UInt32(truncatingIfNeeded: handle >> 32), UInt32(raw)]
+            )
             let id = AttributeID(rawValue: raw)
             if let code = reply.args.first, code != 0 {
                 result[id] = Attribute(id: id, messageCode: Int(code), value: await messageText(code))
@@ -263,7 +280,11 @@ public actor EngineSession {
 
     /// Send a call and service every callback the engine raises before it returns.
     @discardableResult
-    func call(_ command: EngineProtocol.Command, args: [UInt32] = [], data: Data = Data()) async throws -> EngineProtocol.Frame {
+    func call(
+        _ command: EngineProtocol.Command,
+        args: [UInt32] = [],
+        data: Data = Data()
+    ) async throws -> EngineProtocol.Frame {
         guard started else { throw Failure.notStarted }
         var outgoing = EngineProtocol.Frame(command, args: args, data: data)
         while true {
@@ -280,7 +301,11 @@ public actor EngineSession {
         }
     }
 
-    func call(_ command: EngineProtocol.Command, args: [UInt32] = [], string: String?) async throws -> EngineProtocol.Frame {
+    func call(
+        _ command: EngineProtocol.Command,
+        args: [UInt32] = [],
+        string: String?
+    ) async throws -> EngineProtocol.Frame {
         try await call(command, args: args, data: string.map { Data($0.utf8) + [0] } ?? Data())
     }
 
@@ -299,27 +324,7 @@ public actor EngineSession {
             jobsCompleted += 1
             emit(.jobFinished)
         case .backUpdateDrive:
-            let strings = frame.strings
-            var cursor = 0
-            func next(_ present: Bool) -> String {
-                guard present, cursor < strings.count else { return "" }
-                defer { cursor += 1 }
-                return strings[cursor]
-            }
-            let mask = frame.args[1]
-            let driveName = next(mask & 1 != 0)
-            let discName = next(mask & 2 != 0)
-            let deviceName = next(mask & 4 != 0)
-            let index = Int(frame.args[0])
-            driveTable[index] = Drive(
-                index: index,
-                state: DriveState(rawValue: Int(frame.args[2])),
-                enabled: 999,
-                media: MediaFlags(rawValue: Int(frame.args[3])),
-                driveName: driveName,
-                discName: discName,
-                devicePath: deviceName
-            )
+            updateDrive(from: frame)
         case .backSetTotalName:
             totalTitleCode = frame.args[0]
         case .backUpdateLayout:
@@ -340,7 +345,17 @@ public actor EngineSession {
         case .backReportUiDialog:
             // A question the GUI would put to the user. -1 is "no answer", which is what libmmbd
             // gives; the engine then takes its default, and the message log says what was asked.
-            emit(.message(Message(code: Int(frame.args[0]), flags: frame.args[1], text: "Engine asked: " + frame.strings.joined(separator: " / "), format: "", parameters: [])))
+            emit(
+                .message(
+                    Message(
+                        code: Int(frame.args[0]),
+                        flags: frame.args[1],
+                        text: "Engine asked: " + frame.strings.joined(separator: " / "),
+                        format: "",
+                        parameters: []
+                    )
+                )
+            )
             done = EngineProtocol.Frame(.clientDone, args: [UInt32(bitPattern: -1)], data: Data([0]))
         case .backSetTitleCollInfo:
             collectionHandle = frame.handle(at: 0)
@@ -361,6 +376,32 @@ public actor EngineSession {
             done = EngineProtocol.Frame(.clientDone, args: [0])
         }
         return done
+    }
+
+    /// Record a drive from a `backUpdateDrive` callback. The second argument is a mask saying which
+    /// of the drive name, disc name and device name are present among the frame's strings.
+    private func updateDrive(from frame: EngineProtocol.Frame) {
+        let strings = frame.strings
+        var cursor = 0
+        func next(_ present: Bool) -> String {
+            guard present, cursor < strings.count else { return "" }
+            defer { cursor += 1 }
+            return strings[cursor]
+        }
+        let mask = frame.args[1]
+        let driveName = next(mask & 1 != 0)
+        let discName = next(mask & 2 != 0)
+        let deviceName = next(mask & 4 != 0)
+        let index = Int(frame.args[0])
+        driveTable[index] = Drive(
+            index: index,
+            state: DriveState(rawValue: Int(frame.args[2])),
+            enabled: 999,
+            media: MediaFlags(rawValue: Int(frame.args[3])),
+            driveName: driveName,
+            discName: discName,
+            devicePath: deviceName
+        )
     }
 
     /// Run a call that starts a background job, and return only when that job has finished.
@@ -395,8 +436,20 @@ public actor EngineSession {
     }
 
     private func emitProgress() async {
-        let current = currentTitleCode == 0 ? nil : ProgressTitle(code: Int(currentTitleCode), id: 0, name: await messageText(currentTitleCode))
-        let total = totalTitleCode == 0 ? nil : ProgressTitle(code: Int(totalTitleCode), id: 0, name: await messageText(totalTitleCode))
-        emit(.progress(RipProgress(current: current, total: total, value: ProgressValue(current: currentBar, total: totalBar, maximum: EngineProtocol.progressMaximum))))
+        let current =
+            currentTitleCode == 0
+            ? nil : ProgressTitle(code: Int(currentTitleCode), id: 0, name: await messageText(currentTitleCode))
+        let total =
+            totalTitleCode == 0
+            ? nil : ProgressTitle(code: Int(totalTitleCode), id: 0, name: await messageText(totalTitleCode))
+        emit(
+            .progress(
+                RipProgress(
+                    current: current,
+                    total: total,
+                    value: ProgressValue(current: currentBar, total: totalBar, maximum: EngineProtocol.progressMaximum)
+                )
+            )
+        )
     }
 }
