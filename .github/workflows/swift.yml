@@ -27,3 +27,79 @@ jobs:
       # drive and no network — the corpus test skips itself unless pointed at a TheDiscDb clone.
       - name: swift test
         run: swift test
+
+  SwiftLint:
+    name: SwiftLint 0.63.2
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      # The same SwiftLint, and the same `.swiftlint.yml`, as swift-wire's gate. Lint reads source
+      # alone, so it runs on Linux although the package does not build there.
+      - name: Install SwiftLint
+        run: |
+          curl -sL https://github.com/realm/SwiftLint/releases/download/0.63.2/swiftlint_linux_amd64.zip -o swiftlint.zip
+          unzip -o swiftlint.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/swiftlint
+      - name: SwiftLint
+        run: swiftlint lint --quiet
+
+  SwiftFormat:
+    name: swift-format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      # The formatter is the one in the toolchain .swift-version names. Formatting reads source
+      # alone, so like lint it runs on Linux.
+      - uses: swift-wire/setup-swift@v1
+      - name: Run swift-format
+        run: swift-format format --recursive --in-place .
+      - name: Check for formatting differences
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git diff --exit-code
+
+  Coverage:
+    name: Coverage
+    # On macOS, unlike swift-wire's: the driver reads makemkvcon through Darwin's file APIs and
+    # `FileHandle.bytes`, so the package does not build on Linux. macos-26 because the 6.4 toolchain
+    # pairs with that image's SDK.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v6
+      - uses: swift-wire/setup-swift@v1
+      - name: Run tests with coverage
+        run: swift test --enable-code-coverage --xunit-output test-results.xml
+      - name: Convert to LCOV
+        # One `.xctest` bundle per test target, each with its instrumented binary inside, so
+        # llvm-cov is handed every one of them. llvm-cov is the installed toolchain's, which reads
+        # the profile its own compiler wrote.
+        run: |
+          BIN_PATH=$(swift build --show-bin-path)
+          PROFDATA=$(find .build -name 'default.profdata' -path '*/codecov/*' | head -1)
+          objects=()
+          for bundle in "$BIN_PATH"/*.xctest; do
+            binary="$bundle/Contents/MacOS/$(basename "$bundle" .xctest)"
+            [ -f "$binary" ] && objects+=(-object "$binary")
+          done
+          llvm-cov export \
+            -format=lcov \
+            -instr-profile="$PROFDATA" \
+            "${objects[@]}" \
+            -ignore-filename-regex=".build|Tests" \
+            > coverage.lcov
+      - name: Upload coverage
+        uses: codecov/codecov-action@v6
+        with:
+          files: coverage.lcov
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test results
+        uses: codecov/codecov-action@v6
+        if: always()
+        with:
+          files: test-results.xml
+          report_type: test_results
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

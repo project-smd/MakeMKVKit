@@ -18,7 +18,7 @@ struct CorpusTests {
     ///
     /// - Miami Vice disc 9 is truncated at the top and opens part-way through a multi-line message.
     private static let damagedUpstream: Set<String> = [
-        "series/Miami Vice (1984)/2016-complete-series-blu-ray/disc09.txt",
+        "series/Miami Vice (1984)/2016-complete-series-blu-ray/disc09.txt"
     ]
 
     @Test(.enabled(if: dataRoot != nil, "set MAKEMKVKIT_THEDISCDB_DATA to a clone of TheDiscDb/data"))
@@ -52,8 +52,14 @@ struct CorpusTests {
         }
 
         #expect(logs > 1000, "expected the whole corpus, found \(logs) logs under \(dataURL.path)")
-        #expect(unreadable.count == 0, "lines not parsed, by file:\n\(histogram(unreadable))\nfirst few:\n\(unreadable.prefix(8).joined(separator: "\n"))")
-        #expect(problems.count == 0, "disagreements, by file:\n\(histogram(problems))\nfirst few:\n\(problems.prefix(8).joined(separator: "\n"))")
+        #expect(
+            unreadable.count == 0,
+            "lines not parsed, by file:\n\(histogram(unreadable))\nfirst few:\n\(unreadable.prefix(8).joined(separator: "\n"))"
+        )
+        #expect(
+            problems.count == 0,
+            "disagreements, by file:\n\(histogram(problems))\nfirst few:\n\(problems.prefix(8).joined(separator: "\n"))"
+        )
         print("corpus: \(logs) logs, \(unreadable.count) unreadable lines, \(problems.count) disagreements")
     }
 

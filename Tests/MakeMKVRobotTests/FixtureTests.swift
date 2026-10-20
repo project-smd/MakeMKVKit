@@ -109,7 +109,10 @@ struct FixtureTests {
     @Test func uhdIsReportedAsBluray() throws {
         let scan = DiscScan(parsing: try Fixture.text("real-life-disc01-uhd.txt"))
         let disc = try #require(scan.disc)
-        #expect(disc.mediaType == .bluray, "UHD discs carry the Blu-ray type code; the format is not distinguishable here")
+        #expect(
+            disc.mediaType == .bluray,
+            "UHD discs carry the Blu-ray type code; the format is not distinguishable here"
+        )
         #expect(disc.titleCount == 4)
     }
 
@@ -124,13 +127,15 @@ struct FixtureTests {
     }
 
     @Test func emptyRunHasNoDisc() {
-        let scan = DiscScan(parsing: """
-            MSG:1005,0,1,"MakeMKV v1.18.4 darwin(arm64-release) started","%1 started","MakeMKV v1.18.4 darwin(arm64-release)"
-            MSG:5042,0,0,"The program can't find any usable optical drives.","The program can't find any usable optical drives."
-            DRV:0,256,999,0,"","",""
-            MSG:5010,0,0,"Failed to open disc","Failed to open disc"
-            TCOUNT:0
-            """)
+        let scan = DiscScan(
+            parsing: """
+                MSG:1005,0,1,"MakeMKV v1.18.4 darwin(arm64-release) started","%1 started","MakeMKV v1.18.4 darwin(arm64-release)"
+                MSG:5042,0,0,"The program can't find any usable optical drives.","The program can't find any usable optical drives."
+                DRV:0,256,999,0,"","",""
+                MSG:5010,0,0,"Failed to open disc","Failed to open disc"
+                TCOUNT:0
+                """
+        )
         #expect(scan.message(code: MessageCode.noUsableDrives) != nil)
         #expect(scan.message(code: MessageCode.failedToOpenDisc) != nil)
         #expect(scan.disc?.titleCount == 0)

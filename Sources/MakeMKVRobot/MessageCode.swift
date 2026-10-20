@@ -16,12 +16,12 @@ public enum MessageCode {
     public static let backupCompletedHashFail = 5079
 
     // Observed. The comment is the format string the code arrived with.
-    public static let started = 1005                  // "%1 started"
-    public static let directDiscAccess = 3007         // "Using direct disc access mode"
-    public static let titleSkippedShort = 3025        // "Title #%1 has length of %2 seconds which is less than minimum title length of %3 seconds and was therefore skipped"
-    public static let titleAdded = 3307               // "File %1 was added as title #%2"
-    public static let titleSkippedDuplicate = 3309    // "Title %1 is equal to title %2 and was skipped"
-    public static let failedToOpenDisc = 5010         // "Failed to open disc"
-    public static let operationCompleted = 5011       // "Operation successfully completed"
-    public static let noUsableDrives = 5042           // "The program can't find any usable optical drives."
+    public static let started = 1005  // "%1 started"
+    public static let directDiscAccess = 3007  // "Using direct disc access mode"
+    public static let titleSkippedShort = 3025  // "Title #%1 has length of %2 seconds which is less than minimum title length of %3 seconds and was therefore skipped"
+    public static let titleAdded = 3307  // "File %1 was added as title #%2"
+    public static let titleSkippedDuplicate = 3309  // "Title %1 is equal to title %2 and was skipped"
+    public static let failedToOpenDisc = 5010  // "Failed to open disc"
+    public static let operationCompleted = 5011  // "Operation successfully completed"
+    public static let noUsableDrives = 5042  // "The program can't find any usable optical drives."
 }

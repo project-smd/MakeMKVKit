@@ -45,16 +45,24 @@ func disagreements(between scan: DiscScan, and record: TheDiscDbDisc) -> [String
             continue
         }
         if title.sourceIdentifier != expected.SourceFile {
-            problems.append("title \(expected.Index) source \(title.sourceIdentifier ?? "nil") != \(expected.SourceFile ?? "nil")")
+            problems.append(
+                "title \(expected.Index) source \(title.sourceIdentifier ?? "nil") != \(expected.SourceFile ?? "nil")"
+            )
         }
         if title.segmentMap != expected.SegmentMap {
-            problems.append("title \(expected.Index) segments \(title.segmentMap ?? "nil") != \(expected.SegmentMap ?? "nil")")
+            problems.append(
+                "title \(expected.Index) segments \(title.segmentMap ?? "nil") != \(expected.SegmentMap ?? "nil")"
+            )
         }
         if title.durationText != expected.Duration {
-            problems.append("title \(expected.Index) duration \(title.durationText ?? "nil") != \(expected.Duration ?? "nil")")
+            problems.append(
+                "title \(expected.Index) duration \(title.durationText ?? "nil") != \(expected.Duration ?? "nil")"
+            )
         }
         if title.sizeBytes != expected.Size {
-            problems.append("title \(expected.Index) size \(title.sizeBytes.map(String.init) ?? "nil") != \(expected.Size.map(String.init) ?? "nil")")
+            problems.append(
+                "title \(expected.Index) size \(title.sizeBytes.map(String.init) ?? "nil") != \(expected.Size.map(String.init) ?? "nil")"
+            )
         }
         for track in expected.Tracks ?? [] {
             guard let parsed = title.tracks.first(where: { $0.index == track.Index }) else {
@@ -63,12 +71,13 @@ func disagreements(between scan: DiscScan, and record: TheDiscDbDisc) -> [String
             }
             // TheDiscDb stores the type as the text MakeMKV printed, which is localised — "Untertitel"
             // on a German install — so agree on either the code-derived kind or the literal text.
-            let kind: TrackKind? = switch track.type {
-            case "Video": .video
-            case "Audio": .audio
-            case "Subtitles": .subtitles
-            default: nil
-            }
+            let kind: TrackKind? =
+                switch track.type {
+                case "Video": .video
+                case "Audio": .audio
+                case "Subtitles": .subtitles
+                default: nil
+                }
             if parsed.kind != kind && parsed[.type] != track.type {
                 problems.append("title \(expected.Index) stream \(track.Index) kind \(parsed.kind) != \(track.type)")
             }
@@ -79,7 +88,10 @@ func disagreements(between scan: DiscScan, and record: TheDiscDbDisc) -> [String
 
 enum Fixture {
     static func url(_ name: String) throws -> URL {
-        try #require(Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures"), "fixture \(name)")
+        try #require(
+            Bundle.module.url(forResource: name, withExtension: nil, subdirectory: "Fixtures"),
+            "fixture \(name)"
+        )
     }
 
     static func text(_ name: String) throws -> String {

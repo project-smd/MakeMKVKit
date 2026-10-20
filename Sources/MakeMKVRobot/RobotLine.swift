@@ -97,7 +97,15 @@ public struct Drive: Hashable, Sendable {
     public var discName: String
     public var devicePath: String
 
-    public init(index: Int, state: DriveState, enabled: Int, media: MediaFlags, driveName: String, discName: String, devicePath: String) {
+    public init(
+        index: Int,
+        state: DriveState,
+        enabled: Int,
+        media: MediaFlags,
+        driveName: String,
+        discName: String,
+        devicePath: String
+    ) {
         self.index = index
         self.state = state
         self.enabled = enabled

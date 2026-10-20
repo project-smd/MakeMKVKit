@@ -60,7 +60,9 @@ public struct RobotLineParser: Sendable {
 
     // MARK: - Grammar
 
-    static let knownPrefixes: Set<Substring> = ["MSG", "PRGC", "PRGT", "PRGV", "DRV", "TCOUNT", "CINFO", "TINFO", "SINFO"]
+    static let knownPrefixes: Set<Substring> = [
+        "MSG", "PRGC", "PRGT", "PRGV", "DRV", "TCOUNT", "CINFO", "TINFO", "SINFO",
+    ]
 
     static func hasKnownPrefix(_ line: String) -> Bool {
         guard let colon = line.firstIndex(of: ":") else { return false }
@@ -115,85 +117,105 @@ public struct RobotLineParser: Sendable {
         let prefix = line[..<colon]
         let payload = line[line.index(after: colon)...]
 
-        // Everything below returns `.unrecognised(line)` on a shape it cannot read, so a malformed
-        // line is surfaced rather than swallowed or turned into a half-filled value.
+        // Every reader below returns `nil` on a shape it cannot read, which becomes
+        // `.unrecognised(line)`, so a malformed line is surfaced rather than swallowed or turned into
+        // a half-filled value.
+        let parsed: RobotLine?
         switch prefix {
-        case "MSG":
-            let f = fields(payload)
-            guard f.count >= 5, let code = Int(f[0]), let flags = UInt32(f[1]), let count = Int(f[2]) else {
-                return .unrecognised(line)
-            }
-            let parameters = Array(f.dropFirst(5))
-            guard parameters.count == count else {
-                return .unrecognised(line)
-            }
-            return .message(Message(code: code, flags: flags, text: f[3], format: f[4], parameters: parameters))
+        case "MSG": parsed = message(fields(payload))
+        case "PRGC": parsed = progressTitle(fields(payload)).map(RobotLine.progressCurrent)
+        case "PRGT": parsed = progressTitle(fields(payload)).map(RobotLine.progressTotal)
+        case "PRGV": parsed = progressValue(fields(payload))
+        case "DRV": parsed = drive(fields(payload))
+        case "TCOUNT": parsed = Int(payload).map(RobotLine.titleCount)
+        case "CINFO": parsed = discAttribute(fields(payload))
+        case "TINFO": parsed = titleAttribute(fields(payload))
+        case "SINFO": parsed = streamAttribute(fields(payload))
+        default: parsed = nil
+        }
+        return parsed ?? .unrecognised(line)
+    }
 
-        case "PRGC", "PRGT":
-            let f = fields(payload)
-            guard f.count == 3, let code = Int(f[0]), let id = Int(f[1]) else {
-                return .unrecognised(line)
-            }
-            let title = ProgressTitle(code: code, id: id, name: f[2])
-            return prefix == "PRGC" ? .progressCurrent(title) : .progressTotal(title)
+    // MARK: - Line kinds
 
-        case "PRGV":
-            let f = fields(payload)
-            guard f.count == 3, let current = Int(f[0]), let total = Int(f[1]), let maximum = Int(f[2]) else {
-                return .unrecognised(line)
-            }
-            return .progressValue(ProgressValue(current: current, total: total, maximum: maximum))
+    private static func message(_ fields: [String]) -> RobotLine? {
+        guard fields.count >= 5, let code = Int(fields[0]), let flags = UInt32(fields[1]), let count = Int(fields[2])
+        else {
+            return nil
+        }
+        let parameters = Array(fields.dropFirst(5))
+        guard parameters.count == count else {
+            return nil
+        }
+        return .message(
+            Message(code: code, flags: flags, text: fields[3], format: fields[4], parameters: parameters)
+        )
+    }
 
-        case "DRV":
-            let f = fields(payload)
-            // Six fields in older versions, seven once the device path was added.
-            guard f.count == 6 || f.count == 7,
-                  let index = Int(f[0]), let state = Int(f[1]), let enabled = Int(f[2]), let flags = Int(f[3]) else {
-                return .unrecognised(line)
-            }
-            return .drive(Drive(
+    private static func progressTitle(_ fields: [String]) -> ProgressTitle? {
+        guard fields.count == 3, let code = Int(fields[0]), let id = Int(fields[1]) else {
+            return nil
+        }
+        return ProgressTitle(code: code, id: id, name: fields[2])
+    }
+
+    private static func progressValue(_ fields: [String]) -> RobotLine? {
+        guard fields.count == 3, let current = Int(fields[0]), let total = Int(fields[1]),
+            let maximum = Int(fields[2])
+        else {
+            return nil
+        }
+        return .progressValue(ProgressValue(current: current, total: total, maximum: maximum))
+    }
+
+    private static func drive(_ fields: [String]) -> RobotLine? {
+        // Six fields in older versions, seven once the device path was added.
+        guard fields.count == 6 || fields.count == 7,
+            let index = Int(fields[0]), let state = Int(fields[1]), let enabled = Int(fields[2]),
+            let flags = Int(fields[3])
+        else {
+            return nil
+        }
+        return .drive(
+            Drive(
                 index: index,
                 state: DriveState(rawValue: state),
                 enabled: enabled,
                 media: MediaFlags(rawValue: flags),
-                driveName: f[4],
-                discName: f[5],
-                devicePath: f.count == 7 ? f[6] : ""
-            ))
-
-        case "TCOUNT":
-            guard let count = Int(payload) else {
-                return .unrecognised(line)
-            }
-            return .titleCount(count)
-
-        case "CINFO":
-            let f = fields(payload)
-            guard f.count == 3, let id = Int(f[0]), let code = Int(f[1]) else {
-                return .unrecognised(line)
-            }
-            return .discAttribute(Attribute(id: AttributeID(rawValue: id), messageCode: code, value: f[2]))
-
-        case "TINFO":
-            let f = fields(payload)
-            guard f.count == 4, let title = Int(f[0]), let id = Int(f[1]), let code = Int(f[2]) else {
-                return .unrecognised(line)
-            }
-            return .titleAttribute(title: title, Attribute(id: AttributeID(rawValue: id), messageCode: code, value: f[3]))
-
-        case "SINFO":
-            let f = fields(payload)
-            guard f.count == 5, let title = Int(f[0]), let stream = Int(f[1]), let id = Int(f[2]), let code = Int(f[3]) else {
-                return .unrecognised(line)
-            }
-            return .streamAttribute(
-                title: title,
-                stream: stream,
-                Attribute(id: AttributeID(rawValue: id), messageCode: code, value: f[4])
+                driveName: fields[4],
+                discName: fields[5],
+                devicePath: fields.count == 7 ? fields[6] : ""
             )
+        )
+    }
 
-        default:
-            return .unrecognised(line)
+    private static func discAttribute(_ fields: [String]) -> RobotLine? {
+        guard fields.count == 3, let id = Int(fields[0]), let code = Int(fields[1]) else {
+            return nil
         }
+        return .discAttribute(Attribute(id: AttributeID(rawValue: id), messageCode: code, value: fields[2]))
+    }
+
+    private static func titleAttribute(_ fields: [String]) -> RobotLine? {
+        guard fields.count == 4, let title = Int(fields[0]), let id = Int(fields[1]), let code = Int(fields[2]) else {
+            return nil
+        }
+        return .titleAttribute(
+            title: title,
+            Attribute(id: AttributeID(rawValue: id), messageCode: code, value: fields[3])
+        )
+    }
+
+    private static func streamAttribute(_ fields: [String]) -> RobotLine? {
+        guard fields.count == 5, let title = Int(fields[0]), let stream = Int(fields[1]), let id = Int(fields[2]),
+            let code = Int(fields[3])
+        else {
+            return nil
+        }
+        return .streamAttribute(
+            title: title,
+            stream: stream,
+            Attribute(id: AttributeID(rawValue: id), messageCode: code, value: fields[4])
+        )
     }
 }

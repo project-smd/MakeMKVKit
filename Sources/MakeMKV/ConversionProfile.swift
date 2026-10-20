@@ -25,40 +25,40 @@ public struct ConversionProfile: Hashable, Sendable {
         let rule = Self.escape(selection.description)
         let title = Self.escape(name)
         return """
-        <?xml version="1.0" encoding="utf-8"?>
-        <!-- Written by MakeMKVKit. Mirrors MakeMKV's default.mmcp.xml with the selection rule
-             inlined, so the same profile selects the same tracks on any machine. -->
-        <profile>
-            <name lang="eng">\(title)</name>
-            <mkvSettings
-                ignoreForcedSubtitlesFlag="true"
-                useISO639Type2T="false"
-                setFirstAudioTrackAsDefault="true"
-                setFirstSubtitleTrackAsDefault="true"
-                setFirstForcedSubtitleTrackAsDefault="true"
-                insertFirstChapter00IfMissing="true"
-            />
-            <outputSettings name="copy" outputFormat="directCopy">
-                <description lang="eng">Copy track as is</description>
-            </outputSettings>
-            <outputSettings name="lpcm" outputFormat="LPCM-raw">
-                <description lang="eng">Save as raw LPCM</description>
-            </outputSettings>
-            <outputSettings name="wavex" outputFormat="LPCM-wavex">
-                <description lang="eng">Save as LPCM in WAV container</description>
-            </outputSettings>
-            <trackSettings input="default">
-                <output outputSettingsName="copy" defaultSelection="\(rule)"/>
-            </trackSettings>
-            <trackSettings input="LPCM-stereo">
-                <output outputSettingsName="lpcm" defaultSelection="\(rule)"/>
-            </trackSettings>
-            <trackSettings input="LPCM-multi">
-                <output outputSettingsName="wavex" defaultSelection="\(rule)"/>
-            </trackSettings>
-        </profile>
+            <?xml version="1.0" encoding="utf-8"?>
+            <!-- Written by MakeMKVKit. Mirrors MakeMKV's default.mmcp.xml with the selection rule
+                 inlined, so the same profile selects the same tracks on any machine. -->
+            <profile>
+                <name lang="eng">\(title)</name>
+                <mkvSettings
+                    ignoreForcedSubtitlesFlag="true"
+                    useISO639Type2T="false"
+                    setFirstAudioTrackAsDefault="true"
+                    setFirstSubtitleTrackAsDefault="true"
+                    setFirstForcedSubtitleTrackAsDefault="true"
+                    insertFirstChapter00IfMissing="true"
+                />
+                <outputSettings name="copy" outputFormat="directCopy">
+                    <description lang="eng">Copy track as is</description>
+                </outputSettings>
+                <outputSettings name="lpcm" outputFormat="LPCM-raw">
+                    <description lang="eng">Save as raw LPCM</description>
+                </outputSettings>
+                <outputSettings name="wavex" outputFormat="LPCM-wavex">
+                    <description lang="eng">Save as LPCM in WAV container</description>
+                </outputSettings>
+                <trackSettings input="default">
+                    <output outputSettingsName="copy" defaultSelection="\(rule)"/>
+                </trackSettings>
+                <trackSettings input="LPCM-stereo">
+                    <output outputSettingsName="lpcm" defaultSelection="\(rule)"/>
+                </trackSettings>
+                <trackSettings input="LPCM-multi">
+                    <output outputSettingsName="wavex" defaultSelection="\(rule)"/>
+                </trackSettings>
+            </profile>
 
-        """
+            """
     }
 
     /// Write the document to a file MakeMKV can be pointed at.

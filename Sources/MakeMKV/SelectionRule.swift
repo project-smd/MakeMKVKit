@@ -78,7 +78,7 @@ public struct SelectionRule: Hashable, Sendable, CustomStringConvertible {
             switch self {
             case .attribute(let attribute): attribute.rawValue
             case .language(let code): code
-            case .nth(let n): String(n)
+            case .nth(let position): String(position)
             case .not(let inner): "!" + inner.text
             case .allOf(let parts): "(" + parts.map(\.text).joined(separator: "*") + ")"
             case .anyOf(let parts): "(" + parts.map(\.text).joined(separator: "|") + ")"

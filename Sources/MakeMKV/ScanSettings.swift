@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 the MakeMKVKit project authors
 
-import Foundation
-
 /// The switches that change what a scan sees, and therefore what a title index means.
 ///
 /// A rip reuses the settings of the scan it came from, without exception, because MakeMKV numbers
